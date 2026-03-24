@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Charity KDS</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <script src="/socket.io/socket.io.js"></script>
+    <style>
+        body { font-family: -apple-system, sans-serif; margin: 20px; background: #f0f2f5; color: #1c1e21; }
+        .hidden { display: none; }
+        .mod-btn { 
+            background: #e0e0e0; 
+            border: 2px solid #ccc; 
+            padding: 8px 12px; 
+            border-radius: 20px; 
+            cursor: pointer;
+            font-weight: bold;
+            transition: 0.2s;
+        }
+        .mod-btn.active { 
+            background: #2196F3; 
+            color: white; 
+            border-color: #0d47a1; 
+        }
+        /* Register Styling */
+        .category-section { background: white; padding: 15px; border-radius: 12px; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .menu-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 10px; margin-top: 10px; }
+        .btn { border: none; padding: 20px 10px; border-radius: 8px; font-weight: bold; color: white; cursor: pointer; transition: transform 0.1s; }
+        .btn:active { transform: scale(0.95); }
+        .juice { background: #f39c12; } .smoothie { background: #9b59b6; } .cafe { background: #795548; }
+
+        /* Kitchen Card Styling */
+        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 15px; }
+        .card { background: white; padding: 15px; border-radius: 10px; border-left: 8px solid #2ecc71; box-shadow: 0 4px 6px rgba(0,0,0,0.1); position: relative; }
+        .card.smoothie-card { border-left-color: #9b59b6; }
+        .card.cafe-card { border-left-color: #795548; }
+        .cancel-x { background: #ff4757; color: white; border: none; border-radius: 50%; width: 25px; height: 25px; cursor: pointer; float: right; }
+        
+        #stats-panel { background: #333; color: white; padding: 15px; border-radius: 10px; margin-top: 20px; }
+    </style>
+</head>
+<body>
+
+    <h1 id="view-title">Loading System...</h1>
+    <audio id="notif-sound" src="https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3"></audio>
+
+    <div id="register-view" class="hidden">
+        <div id="note-section" style="margin-bottom: 15px;">
+            <input type="text" id="order-note" placeholder="Add custom note (e.g. No Ice)" 
+                style="width: 100%; padding: 15px; border-radius: 8px; border: 2px solid #ddd; font-size: 1.1em; box-sizing: border-box;">
+        </div>
+
+        <div id="quick-modifiers" style="margin-bottom: 10px; display: flex; gap: 8px; flex-wrap: wrap;">
+            <button class="mod-btn" onclick="toggleMod('No Ice')">❄️ No Ice</button>
+            <button class="mod-btn" onclick="toggleMod('Less Sweet')">🍯 Less Sweet</button>
+            <button class="mod-btn" onclick="toggleMod('Less Ice')">Less Ice</button>
+            <button class="mod-btn" onclick="toggleMod('Extra Strong')">💪 Extra Strong</button>
+        </div>
+        <div class="category-section">
+            <h2 style="color: #f39c12;">🧃 JUICES</h2>
+            <div class="menu-grid">
+                <button class="btn juice" onclick="sendOrder('Apple Joy', 'juice')">Apple Joy</button>
+                <button class="btn juice" onclick="sendOrder('Orange Zing', 'juice')">Orange Zing</button>
+                <button class="btn juice" onclick="sendOrder('Green Detox', 'juice')">Green Detox</button>
+            </div>
+        </div>
+
+        <div class="category-section">
+            <h2 style="color: #9b59b6;">🥤 SMOOTHIES</h2>
+            <div class="menu-grid">
+                <button class="btn smoothie" onclick="sendOrder('Berry Blast', 'smoothie')">Berry Blast</button>
+                <button class="btn smoothie" onclick="sendOrder('Mango Tango', 'smoothie')">Mango Tango</button>
+            </div>
+        </div>
+
+        <div class="category-section">
+            <h2 style="color: #795548;">☕ CAFE</h2>
+            <div class="menu-grid">
+                <button class="btn cafe" onclick="sendOrder('Latte', 'cafe')">Latte</button>
+                <button class="btn cafe" onclick="sendOrder('Tea', 'cafe')">Tea</button>
+            </div>
+        </div>
+
+        <div id="stats-panel">
+            <h3>📊 Live Sales Tally</h3>
+            <div id="tally-list" style="display: grid; grid-template-columns: 1fr 1fr; gap: 5px;"></div>
+        </div>
+    </div>
+
+    <div id="kitchen-view" class="hidden">
+        <div id="order-list" class="grid"></div>
+    </div>
+
+    <script>
+        const socket = io();
+        const path = window.location.pathname;
+        const stationType = path.split('/').pop(); 
+        const sound = document.getElementById('notif-sound');
+
+        // Identify View
+        if (path === '/' || path === '/register') {
+            document.getElementById('view-title').innerText = "Register Desk";
+            document.getElementById('register-view').classList.remove('hidden');
+        } else {
+            document.getElementById('view-title').innerText = stationType.toUpperCase() + " STATION";
+            document.getElementById('kitchen-view').classList.remove('hidden');
+        }
+
+        // --- ACTIONS ---
+        let activeMods = []; // This tracks your No Ice / Less Sweet buttons
+        function toggleMod(text) {
+            const btns = document.querySelectorAll('.mod-btn');
+            let targetBtn;
+            btns.forEach(b => { if(b.innerText.includes(text)) targetBtn = b; });
+
+            if (activeMods.includes(text)) {
+                activeMods = activeMods.filter(m => m !== text);
+                targetBtn.classList.remove('active');
+            } else {
+                activeMods.push(text);
+                targetBtn.classList.add('active');
+            }
+        }
+
+        function sendOrder(name, category) {
+            const noteInput = document.getElementById('order-note');
+            const customText = noteInput ? noteInput.value.trim() : "";
+            
+            // Combine Quick Mods + Custom Typing
+            let finalNote = activeMods.join(", ");
+            if (customText) {
+                finalNote = finalNote ? `${finalNote} | ${customText}` : customText;
+            }
+
+            // This creates the package to send to your server.js
+            const order = { 
+                id: Date.now(), 
+                name: name, 
+                category: category, 
+                note: finalNote 
+            };
+            
+            // This is the line that actually "Talks" to the server.js
+            socket.emit('new_order', order);
+            
+            // Reset the UI for the next customer
+            if(noteInput) noteInput.value = "";
+            activeMods = [];
+            document.querySelectorAll('.mod-btn').forEach(b => b.classList.remove('active'));
+        }
+
+        function clearOrder(id) {
+            socket.emit('complete_order', id);
+        }
+
+        function cancelOrder(id) {
+            if(confirm("Delete this order?")) {
+                socket.emit('cancel_order', id);
+            }
+        }
+
+        // --- SOCKET EVENTS ---
+        socket.on('display_order', (order) => {
+            if (order.category === stationType) {
+                // Play sound
+                const sound = document.getElementById('notif-sound');
+                sound.play().catch(() => console.log("Tap screen to enable audio"));
+
+                const list = document.getElementById('order-list');
+                const div = document.createElement('div');
+                div.className = `card ${order.category}-card`;
+                div.id = `order-${order.id}`;
+
+                // THIS IS THE NOTE LOGIC
+                const noteHtml = order.note ? 
+                    `<div style="background:#fff9c4; padding:8px; margin:10px 0; border-radius:4px; border:1px solid #fbc02d; color:#5d4037; font-weight:bold;">
+                        📝 ${order.note}
+                    </div>` : '';
+
+                div.innerHTML = `
+                    <button class="cancel-x" onclick="cancelOrder(${order.id})">×</button>
+                    <h2 style="margin:0">${order.name}</h2>
+                    ${noteHtml}
+                    <p style="color:#666; font-size:10px;">ID: ${order.id.toString().slice(-4)}</p>
+                    <button onclick="clearOrder(${order.id})" style="width:100%; background:#2ecc71; color:white; border:none; padding:12px; border-radius:5px; font-weight:bold; cursor:pointer;">DONE</button>
+                `;
+                list.appendChild(div);
+            }
+        });
+        
+        socket.on('remove_order', (id) => {
+            const el = document.getElementById(`order-${id}`);
+            if (el) {
+                el.style.opacity = '0'; // Add a little fade out effect
+                setTimeout(() => el.remove(), 300);
+            }
+        });
+        socket.on('update_tally', (tally) => {
+            const list = document.getElementById('tally-list');
+            if (!list) return;
+            list.innerHTML = '';
+            for (const [name, count] of Object.entries(tally)) {
+                list.innerHTML += `<div>${name}: <strong>${count}</strong></div>`;
+            }
+        });
+        
+        if (stationType && stationType !== "" && stationType !== "register") {
+            socket.emit('request_sync', stationType);
+        }
+    </script>
+</body>
+</html>
