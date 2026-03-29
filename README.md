@@ -8,8 +8,8 @@ Run node server.js
 
 On host: (if using an iPad as a register, just replace localhost with the IP of the host) <br/>
 localhost:3000 (The Register)
-<img width="2304" height="1207" alt="Screenshot 2026-03-24 at 1 22 45 PM" src="https://github.com/user-attachments/assets/cf5e327d-90d0-442c-9644-104b02d2fc95" />
+<img width="2304" height="1208" alt="Screenshot 2026-03-29 at 7 46 51 PM" src="https://github.com/user-attachments/assets/6be96b71-3a89-44e7-ad97-34a2cc117000" />
 
 On iPad/tablet: <br/>
 {laptop IP}:3000/station/juice (The Juice Station)
-<img width="2304" height="584" alt="Screenshot 2026-03-24 at 1 23 05 PM" src="https://github.com/user-attachments/assets/d17484a7-1e15-4ffb-a36b-fb821c760e43" />
+<img width="2304" height="1199" alt="Screenshot 2026-03-29 at 7 47 46 PM" src="https://github.com/user-attachments/assets/c72e11d8-a97d-4fe2-8e28-0d89cd02c157" />
